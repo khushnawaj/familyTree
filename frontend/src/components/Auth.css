@@ -1,0 +1,149 @@
+.auth-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.auth-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+}
+
+.auth-card h2 {
+  margin: 0 0 6px;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.auth-card p {
+  margin: 0 0 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-group {
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #111827;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.08);
+}
+
+.auth-btn {
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+
+.auth-btn.primary {
+  background: #111827;
+  color: white;
+}
+
+.auth-btn.primary:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  margin-top: 16px !important;
+  color: #6b7280 !important;
+  font-size: 13px !important;
+  text-align: center;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #111827;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+  color: #111827;
+}
+
+.auth-card--signup {
+  max-width: 520px;
+}
+
+@media (max-width: 900px) {
+  .auth-card,
+  .auth-card--signup {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    padding: 18px;
+    border-radius: 12px;
+  }
+
+  .auth-card h2 {
+    font-size: 22px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

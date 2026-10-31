@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  /* Reference Match Palette (family-tree-builder.com) */
+  --primary: #2c7a7b; /* Deep Teal */
+  --primary-hover: #285e61;
+  --secondary: #00acc1;
+  --bg: #f5f7f9;
+  --canvas-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #2d3748;
+  --text-muted: #718096;
+  --border: #e2e8f0;
+  --sidebar-bg: #ffffff;
+  --grid-color: rgba(0, 0, 0, 0.04);
+  --gradient-bg: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  background: var(--gradient-bg);
+  color: var(--text-main);
+  overflow: hidden; 
+  -webkit-font-smoothing: antialiased;
+  height: 100vh;
+}
+
+button {
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all 0.2s;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: var(--shadow);
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.btn.primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn.secondary {
+  background: var(--secondary);
+  color: white;
+  border: none;
+}
+
+.btn.secondary:hover {
+  filter: brightness(1.1);
+}
