@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, User, Info, Link as LinkIcon, Save, Trash2, ChevronLeft, ChevronRight, 
-  Upload, UserPlus, UserMinus, Heart, Baby, Users
+  Upload, UserPlus, UserMinus, Heart, Baby, Users, Search, Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -15,6 +15,8 @@ export default function MemberSidebar({
   onCreateRelated
 }) {
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+  const [quickRelLoading, setQuickRelLoading] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -79,20 +81,89 @@ export default function MemberSidebar({
     const file = e.target.files[0];
     if (!file) return;
 
+    // Compress & downscale image on client-side before Base64 encoding to prevent huge payloads
     const reader = new FileReader();
-    reader.onload = () => {
-      setFormData(prev => ({ ...prev, imageUrl: reader.result }));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // High efficiency JPEG data URL (~25-40KB instead of 5-10MB!)
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        setFormData(prev => ({ ...prev, imageUrl: compressedDataUrl }));
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.firstName.trim()) {
+    const trimmedFirst = formData.firstName.trim();
+    if (!trimmedFirst) {
       toast.error("First name is required");
       return;
     }
-    onSave(formData);
+    const trimmedLast = (formData.lastName || '').trim();
+
+    // Client-side uniqueness check: Prevent adding duplicate member
+    const isDuplicate = allMembers.some(m => {
+      if (member?._id && m._id === member._id) return false;
+      const sameFirst = (m.firstName || '').trim().toLowerCase() === trimmedFirst.toLowerCase();
+      const sameLast = (m.lastName || '').trim().toLowerCase() === trimmedLast.toLowerCase();
+      if (!sameFirst || !sameLast) return false;
+
+      // If both have distinct DOB, they may be distinct family members
+      if (m.dob && formData.dob) {
+        return new Date(m.dob).toISOString().split('T')[0] === new Date(formData.dob).toISOString().split('T')[0];
+      }
+      return true;
+    });
+
+    if (isDuplicate) {
+      const fullName = [trimmedFirst, trimmedLast].filter(Boolean).join(' ');
+      toast.error(`A member named "${fullName}" already exists in your family tree!`);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await onSave(formData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleQuickRel = async (type) => {
+    try {
+      setQuickRelLoading(type);
+      await onCreateRelated(type);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setQuickRelLoading(null);
+    }
   };
 
   const relationCandidates = allMembers.filter(m => m._id !== member?._id);
@@ -211,10 +282,34 @@ export default function MemberSidebar({
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-200">
             <div className="grid grid-cols-2 gap-2">
-              <QuickRelBtn icon={<Heart className="h-4 w-4" />} label="+ Spouse" onClick={() => onCreateRelated('spouse')} />
-              <QuickRelBtn icon={<Baby className="h-4 w-4" />} label="+ Child" onClick={() => onCreateRelated('child')} />
-              <QuickRelBtn icon={<Users className="h-4 w-4" />} label="+ Parent" onClick={() => onCreateRelated('parent')} />
-              <QuickRelBtn icon={<UserPlus className="h-4 w-4" />} label="+ Sibling" onClick={() => onCreateRelated('sibling')} />
+              <QuickRelBtn 
+                icon={<Heart className="h-4 w-4" />} 
+                label="+ Spouse" 
+                loading={quickRelLoading === 'spouse'}
+                disabled={Boolean(quickRelLoading) || isSaving}
+                onClick={() => handleQuickRel('spouse')} 
+              />
+              <QuickRelBtn 
+                icon={<Baby className="h-4 w-4" />} 
+                label="+ Child" 
+                loading={quickRelLoading === 'child'}
+                disabled={Boolean(quickRelLoading) || isSaving}
+                onClick={() => handleQuickRel('child')} 
+              />
+              <QuickRelBtn 
+                icon={<Users className="h-4 w-4" />} 
+                label="+ Parent" 
+                loading={quickRelLoading === 'parent'}
+                disabled={Boolean(quickRelLoading) || isSaving}
+                onClick={() => handleQuickRel('parent')} 
+              />
+              <QuickRelBtn 
+                icon={<UserPlus className="h-4 w-4" />} 
+                label="+ Sibling" 
+                loading={quickRelLoading === 'sibling'}
+                disabled={Boolean(quickRelLoading) || isSaving}
+                onClick={() => handleQuickRel('sibling')} 
+              />
             </div>
 
             <div className="space-y-4">
@@ -257,8 +352,9 @@ export default function MemberSidebar({
           {step > 1 && (
             <button 
               type="button" 
+              disabled={isSaving}
               onClick={() => setStep(step - 1)}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Back
             </button>
@@ -266,19 +362,35 @@ export default function MemberSidebar({
           {step < 3 ? (
             <button 
               type="button" 
+              disabled={isSaving}
               onClick={() => setStep(step + 1)}
-              className="flex-[2] py-2.5 rounded-xl bg-teal-600 text-sm font-bold text-white hover:bg-teal-700 shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"
+              className="flex-[2] py-2.5 rounded-xl bg-teal-600 text-sm font-bold text-white hover:bg-teal-700 shadow-lg shadow-teal-100 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               Next Step
             </button>
           ) : (
             <button 
               type="button" 
+              disabled={isSaving}
               onClick={handleSubmit}
-              className="flex-[2] py-2.5 rounded-xl bg-teal-600 text-sm font-bold text-white hover:bg-teal-700 shadow-lg shadow-teal-100 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className={cn(
+                "flex-[2] py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.98] flex items-center justify-center gap-2",
+                isSaving 
+                  ? "bg-teal-500/80 cursor-wait shadow-none" 
+                  : "bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-100"
+              )}
             >
-              <Save className="h-4 w-4" />
-              Save Changes
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -286,8 +398,9 @@ export default function MemberSidebar({
         {member?._id && (
           <button 
             type="button" 
+            disabled={isSaving}
             onClick={() => onDelete(member._id)}
-            className="w-full py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
             Delete Person
@@ -331,14 +444,19 @@ function InputGroup({ label, ...props }) {
   );
 }
 
-function QuickRelBtn({ icon, label, onClick }) {
+function QuickRelBtn({ icon, label, loading, disabled, onClick }) {
   return (
     <button 
+      type="button"
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-teal-200 hover:shadow-lg hover:shadow-teal-50 transition-all group"
+      disabled={disabled}
+      className={cn(
+        "flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-100 bg-slate-50 transition-all group",
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-white hover:border-teal-200 hover:shadow-lg hover:shadow-teal-50"
+      )}
     >
       <div className="p-2 rounded-lg bg-white text-slate-400 group-hover:text-teal-600 transition-colors">
-        {icon}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin text-teal-600" /> : icon}
       </div>
       <span className="text-[10px] font-bold text-slate-500 group-hover:text-teal-700">{label}</span>
     </button>
@@ -347,12 +465,28 @@ function QuickRelBtn({ icon, label, onClick }) {
 
 function RelationSection({ title, type, selected, candidates, onToggle }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredCandidates = useMemo(() => {
+    if (!searchTerm.trim()) return candidates;
+    const term = searchTerm.toLowerCase().trim();
+    return candidates.filter(c => 
+      `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().includes(term)
+    );
+  }, [candidates, searchTerm]);
   
   return (
     <div className="space-y-2 text-left">
       <div className="flex items-center justify-between">
         <h5 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{title} <span className="text-teal-600">({selected.length})</span></h5>
-        <button onClick={() => setIsOpen(!isOpen)} className="text-[10px] font-bold text-teal-600 hover:underline">
+        <button 
+          type="button" 
+          onClick={() => {
+            setIsOpen(!isOpen);
+            if (isOpen) setSearchTerm('');
+          }} 
+          className="text-[10px] font-bold text-teal-600 hover:underline"
+        >
           {isOpen ? 'Close' : 'Add/Edit'}
         </button>
       </div>
@@ -367,7 +501,7 @@ function RelationSection({ title, type, selected, candidates, onToggle }) {
             return (
               <div key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-100">
                 {m.firstName} {m.lastName}
-                <button onClick={() => onToggle(type, id)}><X className="h-3 w-3" /></button>
+                <button type="button" onClick={() => onToggle(type, id)}><X className="h-3 w-3" /></button>
               </div>
             );
           })
@@ -375,21 +509,56 @@ function RelationSection({ title, type, selected, candidates, onToggle }) {
       </div>
 
       {isOpen && (
-        <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 animate-in fade-in duration-200">
-          {candidates.length === 0 && <p className="text-[10px] text-slate-400 p-2">No other members found</p>}
-          {candidates.map(m => (
-            <button 
-              key={m._id}
-              onClick={() => onToggle(type, m._id)}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between",
-                selected.includes(m._id) ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              {m.firstName} {m.lastName}
-              {selected.includes(m._id) ? <UserMinus className="h-3 w-3" /> : <UserPlus className="h-3 w-3 text-slate-300" />}
-            </button>
-          ))}
+        <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm space-y-2 animate-in fade-in duration-200">
+          {/* Search box for relations */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder={`Search ${title.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 py-1.5 pl-8 pr-7 text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 transition-all bg-slate-50/60"
+            />
+            {searchTerm && (
+              <button 
+                type="button" 
+                onClick={() => setSearchTerm('')} 
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-40 overflow-y-auto space-y-1 pr-0.5">
+            {candidates.length === 0 ? (
+              <p className="text-[10px] text-slate-400 p-2 text-center">No other members available</p>
+            ) : filteredCandidates.length === 0 ? (
+              <p className="text-[10px] text-slate-400 p-2 text-center">No matching members found</p>
+            ) : (
+              filteredCandidates.map(m => (
+                <button 
+                  key={m._id}
+                  type="button"
+                  onClick={() => onToggle(type, m._id)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between",
+                    selected.includes(m._id) ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <span className="truncate">{m.firstName} {m.lastName}</span>
+                  {selected.includes(m._id) ? (
+                    <span className="flex items-center gap-1 text-[10px] text-teal-700 bg-teal-100/70 px-1.5 py-0.5 rounded">
+                      Linked <UserMinus className="h-3 w-3" />
+                    </span>
+                  ) : (
+                    <UserPlus className="h-3 w-3 text-slate-300" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

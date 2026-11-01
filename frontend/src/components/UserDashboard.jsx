@@ -19,7 +19,7 @@ import {
 import { cn } from '../lib/utils';
 import Avatar from './Avatar';
 
-export default function UserDashboard({ user, members, onOpenStudio, onCreateMember }) {
+export default function UserDashboard({ user, members, onOpenStudio, onCreateMember, onOpenFamilyUnit }) {
   const livingCount = members.filter(m => m.isLiving !== false).length;
   const deceasedCount = members.length - livingCount;
   
@@ -42,17 +42,24 @@ export default function UserDashboard({ user, members, onOpenStudio, onCreateMem
             <p className="text-slate-500 font-medium">Your family tree is growing. Here is what's new.</p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button 
               onClick={onCreateMember}
-              className="px-6 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2 shadow-sm"
+              className="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2 shadow-sm"
             >
               <PlusCircle className="h-5 w-5 text-teal-600" />
               Quick Add
             </button>
             <button 
+              onClick={onOpenFamilyUnit}
+              className="px-5 py-3 rounded-2xl bg-teal-50 border border-teal-200/80 text-teal-800 font-bold hover:bg-teal-100 transition-all active:scale-95 flex items-center gap-2 shadow-sm"
+            >
+              <Users className="h-5 w-5 text-teal-600" />
+              Add Family Unit
+            </button>
+            <button 
               onClick={onOpenStudio}
-              className="px-8 py-3 rounded-2xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-teal-100"
+              className="px-7 py-3 rounded-2xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-teal-100"
             >
               Open Studio
               <ArrowRight className="h-5 w-5" />

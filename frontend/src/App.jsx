@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { toJpeg, toPng } from 'html-to-image';
 import { saveAs } from 'file-saver';
-import { Share2, Download, Image as ImageIcon, FileText, Plus, Settings } from 'lucide-react';
+import { Share2, Download, Image as ImageIcon, FileText, Plus, Settings, Users } from 'lucide-react';
 import api from './api';
 import { useAuth } from './contexts/AuthContext';
 
@@ -14,6 +14,7 @@ import FamilyTreeCanvas from './components/FamilyTreeCanvas';
 import MemberSidebar from './components/MemberSidebar';
 import MemberDetailModal from './components/MemberDetailModal';
 import SettingsModal from './components/SettingsModal';
+import FamilyUnitModal from './components/FamilyUnitModal';
 
 const initialSettings = {
   showAvatars: true,
@@ -29,6 +30,7 @@ export default function App() {
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFamilyUnitModalOpen, setIsFamilyUnitModalOpen] = useState(false);
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
@@ -91,6 +93,7 @@ export default function App() {
       setSelectedMemberId(null);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save member');
+      throw err;
     }
   };
 
@@ -145,9 +148,19 @@ export default function App() {
     if (!selectedMemberId) return;
     try {
       const base = members.find(m => m._id === selectedMemberId);
+      if (!base) return;
+
+      const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+      let candidateName = `${typeLabel} of ${base.firstName}`;
+      let counter = 1;
+      while (members.some(m => (m.firstName || '').toLowerCase() === candidateName.toLowerCase())) {
+        counter++;
+        candidateName = `${typeLabel} ${counter} of ${base.firstName}`;
+      }
+
       const payload = {
-        firstName: 'New ' + type,
-        lastName: base.lastName,
+        firstName: candidateName,
+        lastName: base.lastName || '',
         gender: type === 'spouse' ? (base.gender === 'Male' ? 'Female' : 'Male') : 'Other',
         isLiving: true,
         nodePosition: {
@@ -177,9 +190,10 @@ export default function App() {
       const res = await api.post('/members', payload);
       await fetchMembers();
       setSelectedMemberId(res.data._id);
-      toast.success(`New ${type} added`);
+      toast.success(`${candidateName} added`);
     } catch (err) {
-      toast.error('Failed to add related member');
+      toast.error(err.response?.data?.error || 'Failed to add related member');
+      throw err;
     }
   };
 
@@ -270,6 +284,10 @@ export default function App() {
               setIsStudioOpen(true);
               setIsSidebarOpen(true);
             }}
+            onOpenFamilyUnit={() => {
+              setIsStudioOpen(true);
+              setIsFamilyUnitModalOpen(true);
+            }}
           />
         ) : (
           <>
@@ -277,7 +295,7 @@ export default function App() {
             <div className="flex-1 relative overflow-hidden">
               {/* Toolbar Overlay */}
               <div className="absolute top-6 left-6 z-10 flex flex-wrap gap-3">
-                <div className="flex bg-white rounded-2xl shadow-xl shadow-slate-200 border border-slate-100 p-1">
+                <div className="flex bg-white rounded-2xl shadow-xl shadow-slate-200 border border-slate-100 p-1 gap-1">
                   <button 
                     onClick={() => {
                       setSelectedMemberId(null);
@@ -287,6 +305,15 @@ export default function App() {
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add Person</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setIsFamilyUnitModalOpen(true)}
+                    className="px-3.5 py-2 text-sm font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-teal-200/60"
+                    title="Add full family unit: member, spouse, children, and parents together"
+                  >
+                    <Users className="h-4 w-4 text-teal-600" />
+                    <span className="hidden sm:inline">Add Family Unit</span>
                   </button>
                 </div>
 
@@ -387,6 +414,16 @@ export default function App() {
         settings={settings}
         onUpdate={(key, val) => setSettings(prev => ({ ...prev, [key]: val }))}
       />
+
+      {isFamilyUnitModalOpen && (
+        <FamilyUnitModal 
+          isOpen={isFamilyUnitModalOpen}
+          onClose={() => setIsFamilyUnitModalOpen(false)}
+          members={members}
+          selectedMemberId={selectedMemberId || previewMemberId}
+          onSuccess={fetchMembers}
+        />
+      )}
 
       <Toaster position="bottom-right" toastOptions={{
         className: 'rounded-2xl font-bold text-sm shadow-2xl',

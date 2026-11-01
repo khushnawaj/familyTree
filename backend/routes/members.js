@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 
 router.get('/', auth, ctrl.getMembers);
 router.post('/', auth, ctrl.createMember);
+router.post('/batch-family', auth, ctrl.createFamilyUnit);
 router.patch('/positions', auth, ctrl.updatePositions);
 router.get('/:id', auth, ctrl.getMember);
 router.put('/:id', auth, ctrl.updateMember);
